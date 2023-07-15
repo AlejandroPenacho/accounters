@@ -10,50 +10,50 @@ use serde_json;
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct Database {
-    accounts: Vec<account::Account>,
-    transactions: Vec<transaction::Transaction>,
-    #[serde(skip)]
-    accounts_map: HashMap<account::AccountName, usize>,
-    #[serde(skip)]
-    transactions_map: HashMap<transaction::TransactionId, usize>,
+    accounts: HashMap<account::AccountName, account::Account>,
+    transactions: HashMap<transaction::TransactionId, transaction::Transaction>,
     #[serde(skip)]
     account_to_transaction_map: HashMap<account::AccountName, Vec<transaction::TransactionId>>,
 }
 
+#[derive(Debug)]
+pub enum Error {
+    AccountNameInUse(account::AccountName),
+    TransactionIdInUse(transaction::TransactionId),
+    UnknownAssociatedAccount((transaction::TransactionId, account::AccountName)),
+}
+
 impl Database {
-    pub fn add_account(&mut self, new_acc: account::Account) -> Result<(), &'static str> {
+    pub fn add_account(&mut self, new_acc: account::Account) -> Result<(), Error> {
         // Check that the account name does not already exist. If it does not,
         // add the account name to the account map.
-        match self.accounts_map.entry(new_acc.get_name().to_owned()) {
-            Entry::Occupied(_) => return Err("Account name already exists"),
+        match self.accounts.entry(new_acc.get_name().to_owned()) {
+            Entry::Occupied(_) => {
+                return Err(Error::AccountNameInUse(new_acc.get_name().to_owned()))
+            }
             Entry::Vacant(entry) => {
-                entry.insert(self.accounts.len());
+                self.account_to_transaction_map
+                    .insert(new_acc.get_name().to_owned(), vec![]);
+                entry.insert(new_acc);
             }
         }
-        self.account_to_transaction_map
-            .insert(new_acc.get_name().to_owned(), vec![]);
 
-        // Add the account to the vector.
-        self.accounts.push(new_acc);
         Ok(())
     }
 
-    pub fn add_transaction(
-        &mut self,
-        new_trns: transaction::Transaction,
-    ) -> Result<(), &'static str> {
-        if self.transactions_map.get(&new_trns.get_id()).is_some() {
-            return Err("Transacion id already in use?!?!");
+    pub fn add_transaction(&mut self, new_trns: transaction::Transaction) -> Result<(), Error> {
+        if self.transactions.get(&new_trns.get_id()).is_some() {
+            return Err(Error::TransactionIdInUse(new_trns.get_id()));
         }
 
         for account_name in new_trns.get_associated_accounts() {
-            if self.accounts_map.get(account_name).is_none() {
-                return Err("One of the accounts in the transaction does not exist");
+            if self.accounts.get(account_name).is_none() {
+                return Err(Error::UnknownAssociatedAccount((
+                    new_trns.get_id(),
+                    account_name.to_owned(),
+                )));
             }
         }
-
-        self.transactions_map
-            .insert(new_trns.get_id(), self.transactions.len());
 
         for account_name in new_trns.get_associated_accounts() {
             self.account_to_transaction_map
@@ -62,14 +62,31 @@ impl Database {
                 .push(new_trns.get_id())
         }
 
-        self.transactions.push(new_trns);
+        self.transactions.insert(new_trns.get_id(), new_trns);
+
         Ok(())
     }
+
+    /*
+    pub fn get_account_balance(
+        &self,
+        account_name: &account::AccountName,
+        start: Option<datetime::DateTime>,
+        end: Option<datetime::DateTime>,
+    ) -> HashMap<transaction::Currency, transaction::Amount> {
+        let mut currencies = HashMap::new();
+
+        for trns_id in self.account_to_transaction_map.get(account_name).iter() {
+            let amount = self.transactions.get(trns_id);
+            unimplemented!();
+        }
+    }
+    */
 }
 
 impl Database {
     pub fn save_to_file(&self, filename: &str) {
-        let text = serde_json::to_string(self).unwrap();
+        let text = serde_json::to_string_pretty(self).unwrap();
 
         let mut file = std::fs::File::create(filename).unwrap();
 
@@ -82,37 +99,24 @@ impl Database {
         let mut database: Database =
             serde_json::from_str(&text).map_err(|_| "Erros in deserialization!!")?;
 
-        database.build_maps()?;
+        database
+            .build_account_transaction_map()
+            .map_err(|_| "Whatever")?;
 
         Ok(database)
     }
 
-    fn build_maps(&mut self) -> Result<(), &'static str> {
-        for (index, account) in self.accounts.iter().enumerate() {
-            match self.accounts_map.entry(account.get_name().clone()) {
-                Entry::Occupied(_) => return Err("Same account name twice"),
-                Entry::Vacant(entry) => {
-                    entry.insert(index);
-                }
-            }
-
+    fn build_account_transaction_map(&mut self) -> Result<(), Error> {
+        for acc_name in self.accounts.keys() {
             self.account_to_transaction_map
-                .insert(account.get_name().to_owned(), vec![]);
+                .insert(acc_name.to_owned(), vec![]);
         }
-
-        for (index, transaction) in self.transactions.iter().enumerate() {
-            match self.transactions_map.entry(transaction.get_id()) {
-                Entry::Occupied(_) => return Err("Same transaction id twice"),
-                Entry::Vacant(entry) => {
-                    entry.insert(index);
-                }
-            }
-
-            for account_name in transaction.get_associated_accounts() {
+        for (trns_id, transaction) in self.transactions.iter() {
+            for acc_name in transaction.get_associated_accounts() {
                 self.account_to_transaction_map
-                    .get_mut(account_name)
+                    .get_mut(acc_name)
                     .unwrap()
-                    .push(transaction.get_id())
+                    .push(*trns_id);
             }
         }
 

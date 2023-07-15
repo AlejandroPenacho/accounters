@@ -14,7 +14,7 @@ pub struct Transaction {
     accounts: Vec<TransactionMovement>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, Default)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
 pub struct TransactionId(u64);
 
 #[derive(Deserialize, Serialize, Hash)]
@@ -29,9 +29,24 @@ pub struct Currency(String);
 
 #[derive(Deserialize, Serialize, Hash)]
 pub struct Amount {
-    units: u64,
-    subs: u64,
-    sub_factor: u64,
+    units: i64,
+    subs: i64,
+    sub_factor: i64,
+}
+
+impl std::ops::Add for Amount {
+    type Output = Self;
+    fn add(self, other: Self) -> Self {
+        let mut units = self.units + other.units;
+
+        let sub_factor = self.sub_factor.max(other.sub_factor);
+
+        Amount {
+            units,
+            subs: 0,
+            sub_factor,
+        }
+    }
 }
 
 impl Transaction {
@@ -39,7 +54,7 @@ impl Transaction {
         name: &str,
         notes: &str,
         datetime: DateTime,
-        accounts: &[(&str, u64)],
+        accounts: &[(&str, i64)],
     ) -> Transaction {
         let mut transaction = Transaction {
             id: TransactionId::default(),
@@ -74,5 +89,9 @@ impl Transaction {
 
     pub fn get_associated_accounts(&self) -> impl Iterator<Item = &AccountName> {
         self.accounts.iter().map(|x| &x.account)
+    }
+
+    pub fn get_movements(&self) -> impl Iterator<Item = &TransactionMovement> {
+        self.accounts.iter()
     }
 }
