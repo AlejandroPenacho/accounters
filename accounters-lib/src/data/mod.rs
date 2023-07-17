@@ -5,12 +5,20 @@ pub mod transaction;
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, io::Write};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json;
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct Database {
+    #[serde(
+        serialize_with = "serialize_accounts",
+        deserialize_with = "deserialize_accounts"
+    )]
     accounts: HashMap<account::AccountName, account::Account>,
+    #[serde(
+        serialize_with = "serialize_transactions",
+        deserialize_with = "deserialize_transactions"
+    )]
     transactions: HashMap<transaction::TransactionId, transaction::Transaction>,
     #[serde(skip)]
     account_to_transaction_map: HashMap<account::AccountName, Vec<transaction::TransactionId>>,
@@ -20,7 +28,7 @@ pub struct Database {
 pub enum Error {
     AccountNameInUse(account::AccountName),
     TransactionIdInUse(transaction::TransactionId),
-    UnknownAssociatedAccount((transaction::TransactionId, account::AccountName)),
+    UnknownAssociatedAccount(account::AccountName),
 }
 
 impl Database {
@@ -42,16 +50,14 @@ impl Database {
     }
 
     pub fn add_transaction(&mut self, new_trns: transaction::Transaction) -> Result<(), Error> {
-        if self.transactions.get(&new_trns.get_id()).is_some() {
-            return Err(Error::TransactionIdInUse(new_trns.get_id()));
+        let transaction_id = new_trns.generate_id();
+        if self.transactions.get(&transaction_id).is_some() {
+            return Err(Error::TransactionIdInUse(transaction_id));
         }
 
         for account_name in new_trns.get_associated_accounts() {
             if self.accounts.get(account_name).is_none() {
-                return Err(Error::UnknownAssociatedAccount((
-                    new_trns.get_id(),
-                    account_name.to_owned(),
-                )));
+                return Err(Error::UnknownAssociatedAccount(account_name.to_owned()));
             }
         }
 
@@ -59,10 +65,10 @@ impl Database {
             self.account_to_transaction_map
                 .get_mut(account_name)
                 .unwrap()
-                .push(new_trns.get_id())
+                .push(transaction_id)
         }
 
-        self.transactions.insert(new_trns.get_id(), new_trns);
+        self.transactions.insert(transaction_id, new_trns);
 
         Ok(())
     }
@@ -122,4 +128,86 @@ impl Database {
 
         Ok(())
     }
+}
+
+fn serialize_transactions<S: Serializer>(
+    map: &HashMap<transaction::TransactionId, transaction::Transaction>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.collect_seq(map.iter().map(|(_, x)| x))
+}
+
+fn deserialize_transactions<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<transaction::TransactionId, transaction::Transaction>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct SeqVisitor;
+
+    impl<'de> Visitor<'de> for SeqVisitor {
+        type Value = HashMap<transaction::TransactionId, transaction::Transaction>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "Whatttt")
+        }
+
+        fn visit_seq<S>(self, mut sequence: S) -> Result<Self::Value, S::Error>
+        where
+            S: serde::de::SeqAccess<'de>,
+        {
+            let mut map = HashMap::new();
+
+            while let Some(trns) = sequence.next_element::<transaction::Transaction>()? {
+                map.insert(trns.generate_id(), trns);
+            }
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(SeqVisitor)
+}
+
+fn serialize_accounts<S: Serializer>(
+    map: &HashMap<account::AccountName, account::Account>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.collect_seq(map.iter().map(|(_, x)| x))
+}
+
+fn deserialize_accounts<'de, D>(
+    deserializer: D,
+) -> Result<HashMap<account::AccountName, account::Account>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct SeqVisitor;
+
+    impl<'de> Visitor<'de> for SeqVisitor {
+        type Value = HashMap<account::AccountName, account::Account>;
+
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "Whatttt")
+        }
+
+        fn visit_seq<S>(self, mut sequence: S) -> Result<Self::Value, S::Error>
+        where
+            S: serde::de::SeqAccess<'de>,
+        {
+            let mut map = HashMap::new();
+
+            while let Some(account) = sequence.next_element::<account::Account>()? {
+                map.insert(account.get_name().to_owned(), account);
+            }
+            Ok(map)
+        }
+    }
+
+    deserializer.deserialize_seq(SeqVisitor)
 }

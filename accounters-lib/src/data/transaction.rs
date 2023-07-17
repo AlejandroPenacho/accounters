@@ -7,7 +7,6 @@ use std::hash::{Hash, Hasher};
 
 #[derive(Deserialize, Serialize, Hash)]
 pub struct Transaction {
-    id: TransactionId,
     name: String,
     notes: String,
     datetime: DateTime,
@@ -56,8 +55,7 @@ impl Transaction {
         datetime: DateTime,
         accounts: &[(&str, i64)],
     ) -> Transaction {
-        let mut transaction = Transaction {
-            id: TransactionId::default(),
+        Transaction {
             name: name.to_owned(),
             notes: notes.to_owned(),
             datetime,
@@ -73,18 +71,7 @@ impl Transaction {
                     currency: Currency("EUR".to_owned()),
                 })
                 .collect(),
-        };
-
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        transaction.hash(&mut hasher);
-
-        transaction.id = TransactionId(hasher.finish());
-
-        transaction
-    }
-
-    pub fn get_id(&self) -> TransactionId {
-        self.id
+        }
     }
 
     pub fn get_associated_accounts(&self) -> impl Iterator<Item = &AccountName> {
@@ -93,5 +80,11 @@ impl Transaction {
 
     pub fn get_movements(&self) -> impl Iterator<Item = &TransactionMovement> {
         self.accounts.iter()
+    }
+
+    pub fn generate_id(&self) -> TransactionId {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.hash(&mut hasher);
+        TransactionId(hasher.finish())
     }
 }
