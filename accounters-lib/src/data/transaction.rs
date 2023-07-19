@@ -1,9 +1,10 @@
 use crate::data::datetime::DateTime;
 use serde::{Deserialize, Serialize};
 
-use crate::data::account::AccountName;
+use crate::data::{account::AccountName, money::Amount};
 
 use std::hash::{Hash, Hasher};
+use std::str::FromStr;
 
 #[derive(Deserialize, Serialize, Hash)]
 pub struct Transaction {
@@ -20,32 +21,6 @@ pub struct TransactionId(u64);
 pub struct TransactionMovement {
     account: AccountName,
     amount: Amount,
-    currency: Currency,
-}
-
-#[derive(Deserialize, Serialize, Hash)]
-pub struct Currency(String);
-
-#[derive(Deserialize, Serialize, Hash)]
-pub struct Amount {
-    units: i64,
-    subs: i64,
-    sub_factor: i64,
-}
-
-impl std::ops::Add for Amount {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        let mut units = self.units + other.units;
-
-        let sub_factor = self.sub_factor.max(other.sub_factor);
-
-        Amount {
-            units,
-            subs: 0,
-            sub_factor,
-        }
-    }
 }
 
 impl Transaction {
@@ -53,7 +28,7 @@ impl Transaction {
         name: &str,
         notes: &str,
         datetime: DateTime,
-        accounts: &[(&str, i64)],
+        accounts: &[(&str, &str)],
     ) -> Transaction {
         Transaction {
             name: name.to_owned(),
@@ -63,12 +38,7 @@ impl Transaction {
                 .iter()
                 .map(|(acc_name, amount)| TransactionMovement {
                     account: AccountName::new(acc_name),
-                    amount: Amount {
-                        units: *amount,
-                        subs: 0,
-                        sub_factor: 0,
-                    },
-                    currency: Currency("EUR".to_owned()),
+                    amount: Amount::from_str(amount).unwrap(),
                 })
                 .collect(),
         }

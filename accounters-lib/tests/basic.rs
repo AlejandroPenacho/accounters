@@ -5,6 +5,8 @@ use accounters_lib::data::{
     Database,
 };
 
+use std::str::FromStr;
+
 #[test]
 fn read_and_write_file() {
     let mut database_1 = Database::default();
@@ -20,14 +22,17 @@ fn read_and_write_file() {
         .add_transaction(Transaction::example_transaction(
             "Comprar nabos",
             "Na que comentar xd",
-            DateTime::simple((2023, 7, 13), Some((14, 54))),
-            &[("bank/ICA_Bank", 132), ("entertainment/eat_out", 132)],
+            DateTime::from_str("2023-07-13 14:54").unwrap(),
+            &[
+                ("bank/ICA_Bank", "132 SEK"),
+                ("entertainment/eat_out", "-132 SEK"),
+            ],
         ))
         .unwrap();
 
-    database_1.save_to_file("test_files/output_file_1.txt");
+    database_1.save_to_file("test_files/file_1.txt");
 
-    let mut database_2 = Database::read_from_file("test_files/input_file_1.txt").unwrap();
+    let mut database_2 = Database::read_from_file("test_files/file_1.txt").unwrap();
 
     database_2
         .add_account(Account::new("shares/monopoly", AccountType::Asset))
@@ -37,10 +42,13 @@ fn read_and_write_file() {
         .add_transaction(Transaction::example_transaction(
             "Big sellot",
             "Hahahaha",
-            DateTime::simple((2011, 7, 15), None),
-            &[("shares/monopoly", 150), ("bank/ICA_Bank", -150)],
+            DateTime::from_str("2011-07-15").unwrap(),
+            &[
+                ("shares/monopoly", "150 EUR"),
+                ("bank/ICA_Bank", "-150 EUR"),
+            ],
         ))
         .unwrap();
 
-    database_2.save_to_file("test_files/output_file_1.txt");
+    database_2.save_to_file("test_files/file_1.txt");
 }

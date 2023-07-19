@@ -1,5 +1,6 @@
 pub mod account;
 pub mod datetime;
+pub mod money;
 pub mod transaction;
 
 use std::collections::hash_map::Entry;
@@ -20,8 +21,6 @@ pub struct Database {
         deserialize_with = "deserialize_transactions"
     )]
     transactions: HashMap<transaction::TransactionId, transaction::Transaction>,
-    #[serde(skip)]
-    account_to_transaction_map: HashMap<account::AccountName, Vec<transaction::TransactionId>>,
 }
 
 #[derive(Debug)]
@@ -40,8 +39,6 @@ impl Database {
                 return Err(Error::AccountNameInUse(new_acc.get_name().to_owned()))
             }
             Entry::Vacant(entry) => {
-                self.account_to_transaction_map
-                    .insert(new_acc.get_name().to_owned(), vec![]);
                 entry.insert(new_acc);
             }
         }
@@ -62,10 +59,10 @@ impl Database {
         }
 
         for account_name in new_trns.get_associated_accounts() {
-            self.account_to_transaction_map
+            self.accounts
                 .get_mut(account_name)
                 .unwrap()
-                .push(transaction_id)
+                .add_transaction(transaction_id);
         }
 
         self.transactions.insert(transaction_id, new_trns);
@@ -113,16 +110,12 @@ impl Database {
     }
 
     fn build_account_transaction_map(&mut self) -> Result<(), Error> {
-        for acc_name in self.accounts.keys() {
-            self.account_to_transaction_map
-                .insert(acc_name.to_owned(), vec![]);
-        }
         for (trns_id, transaction) in self.transactions.iter() {
             for acc_name in transaction.get_associated_accounts() {
-                self.account_to_transaction_map
+                self.accounts
                     .get_mut(acc_name)
                     .unwrap()
-                    .push(*trns_id);
+                    .add_transaction(*trns_id);
             }
         }
 
