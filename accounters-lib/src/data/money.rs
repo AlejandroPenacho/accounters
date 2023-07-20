@@ -1,13 +1,44 @@
 use serde::{Deserialize, Serialize};
 
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    collections::HashMap
+};
 
-#[derive(Debug)]
-pub struct MultiCurrencyAmount {
-    amounts: Vec<Amount>,
+macro_rules! multi_amounts {
+    ($($a:expr),+) => {{
+        let mut amounts = HashMap::new();
+        $(
+            let c_amount = Amount::from_str($a).unwrap();
+            amounts.insert(c_amount.currency.to_owned(), c_amount);
+        )+
+        MultiCurrencyAmount{ amounts }
+    }};
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Debug)]
+#[derive(Debug, PartialEq, Eq)]
+pub struct MultiCurrencyAmount {
+    amounts: HashMap<String, Amount>
+}
+
+impl std::ops::Add for MultiCurrencyAmount {
+    type Output = Self;
+    fn add(mut self, other: Self) -> Self {
+        for other_amount in other.amounts.into_iter().map(|x| x.1) {
+            if let Some(original_amount) = self.amounts.get_mut(&other_amount.currency) {
+                let mut new_amount = std::mem::take(original_amount);
+                new_amount = new_amount.add(other_amount).unwrap();
+                *original_amount = new_amount;
+            } else {
+                self.amounts.insert(other_amount.currency.to_owned(), other_amount);
+            }
+        }
+
+        self
+    }
+}
+
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Debug, Default)]
 pub struct Amount {
     value: i64,
     n_decimals: u32,
@@ -94,6 +125,29 @@ impl Amount {
 #[cfg(test)]
 mod test {
     use super::*;
+    mod multi_currency_amoung {
+        use super::*;
+        #[test]
+        fn adding() {
+            let first_amount = multi_amounts!(
+                "42.1 EUR",
+                "92 USD",
+                "150.00 SEK"
+            );
+            let second_amount = multi_amounts!(
+                "200.23 SEK",
+                "-100 USD",
+                "15 PLN"
+            );
+
+            let final_amount = first_amount + second_amount;
+
+            assert_eq!(
+                multi_amounts!("42.1 EUR", "-8 USD", "350.23 SEK", "15 PLN"),
+                final_amount
+            );
+        }
+    }
     mod amount {
         use super::*;
         #[test]
