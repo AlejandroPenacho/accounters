@@ -5,32 +5,49 @@ use std::{
     collections::HashMap
 };
 
-macro_rules! multi_amounts {
-    ($($a:expr),+) => {{
-        let mut amounts = HashMap::new();
-        $(
-            let c_amount = Amount::from_str($a).unwrap();
-            amounts.insert(c_amount.currency.to_owned(), c_amount);
-        )+
-        MultiCurrencyAmount{ amounts }
-    }};
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct Amount {
+    amounts: HashMap<String, Number>
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct MultiCurrencyAmount {
-    amounts: HashMap<String, Amount>
+impl std::hash::Hash for Amount {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (currency, amount) in self.amounts.iter() {
+            currency.hash(state);
+            amount.hash(state);
+        }
+    }
 }
 
-impl std::ops::Add for MultiCurrencyAmount {
+impl FromStr for Amount {
+    type Err= &'static str;
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let mut output = HashMap::new();
+        
+        let splitted_input = input.split(", ");
+        
+        for element in splitted_input {
+            let mut split = element.split(' ');
+            let number = split.next().unwrap().parse().unwrap();
+            let currency = split.next().unwrap().to_owned();
+
+            output.insert(currency, number);
+        }
+
+        Ok(Amount { amounts: output })
+    }
+}
+
+impl std::ops::Add<&Amount> for Amount {
     type Output = Self;
-    fn add(mut self, other: Self) -> Self {
-        for other_amount in other.amounts.into_iter().map(|x| x.1) {
-            if let Some(original_amount) = self.amounts.get_mut(&other_amount.currency) {
+    fn add(mut self, other: &Self) -> Self {
+        for (other_currency, other_amount) in other.amounts.iter() {
+            if let Some(original_amount) = self.amounts.get_mut(other_currency) {
                 let mut new_amount = std::mem::take(original_amount);
-                new_amount = new_amount.add(other_amount).unwrap();
+                new_amount = new_amount + other_amount.clone();
                 *original_amount = new_amount;
             } else {
-                self.amounts.insert(other_amount.currency.to_owned(), other_amount);
+                self.amounts.insert(other_currency.to_owned(), other_amount.clone());
             }
         }
 
@@ -38,30 +55,24 @@ impl std::ops::Add for MultiCurrencyAmount {
     }
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Debug, Default)]
-pub struct Amount {
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Debug, Default, Clone)]
+pub struct Number {
     value: i64,
     n_decimals: u32,
-    currency: String,
 }
 
-impl FromStr for Amount {
+impl FromStr for Number {
     type Err = &'static str;
     fn from_str(str: &str) -> Result<Self, Self::Err> {
-        let mut first_split = str.split(' ');
 
-        let quantity = first_split.next().ok_or("Come onn")?;
-        let currency = first_split.next().ok_or("Nooo")?.to_owned();
-
-        let mut split = if quantity.contains(',') {
-            quantity.split(',')
-        } else if quantity.contains('.') {
-            quantity.split('.')
+        let mut split = if str.contains(',') {
+            str.split(',')
+        } else if str.contains('.') {
+            str.split('.')
         } else {
-            return Ok(Amount {
-                value: quantity.parse().map_err(|_| "Unparsable")?,
+            return Ok(Number {
+                value: str.parse().map_err(|_| "Unparsable")?,
                 n_decimals: 0,
-                currency,
             });
         };
 
@@ -80,93 +91,69 @@ impl FromStr for Amount {
 
         value += decimals;
 
-        Ok(Amount {
+        Ok(Number {
             value,
             n_decimals,
-            currency,
         })
     }
 }
 
-impl std::cmp::PartialOrd for Amount {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        if self.currency != other.currency {
-            return None;
-        }
 
-        let max_decimals = self.n_decimals.max(other.n_decimals);
-
-        Some(
-            (self.value * 10i64.pow(max_decimals - self.n_decimals))
-                .cmp(&(other.value * 10i64.pow(max_decimals - other.n_decimals))),
-        )
-    }
-}
-
-impl Amount {
-    fn add(self, other: Amount) -> Result<Amount, ()> {
-        if self.currency != other.currency {
-            return Err(());
-        }
-
+impl std::ops::Add for Number {
+    type Output = Number;
+    fn add(self, other: Number) -> Self::Output {
         let n_decimals = self.n_decimals.max(other.n_decimals);
 
         let value = self.value * 10i64.pow(n_decimals - self.n_decimals)
             + other.value * 10i64.pow(n_decimals - other.n_decimals);
 
-        Ok(Amount {
+        Number {
             value,
             n_decimals,
-            currency: self.currency,
-        })
+        }
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    mod multi_currency_amoung {
+    mod amount {
         use super::*;
         #[test]
         fn adding() {
-            let first_amount = multi_amounts!(
-                "42.1 EUR",
-                "92 USD",
-                "150.00 SEK"
-            );
-            let second_amount = multi_amounts!(
-                "200.23 SEK",
-                "-100 USD",
-                "15 PLN"
-            );
-
-            let final_amount = first_amount + second_amount;
+            let first_amount = Amount::from_str("42.1 EUR, 92 USD, 150.00 SEK").unwrap();
+            let second_amount = Amount::from_str("200.23 SEK, -100 USD, 15 PLN").unwrap();
+            let final_amount = first_amount + &second_amount;
 
             assert_eq!(
-                multi_amounts!("42.1 EUR", "-8 USD", "350.23 SEK", "15 PLN"),
+                Amount::from_str("42.1 EUR, -8 USD, 350.23 SEK, 15 PLN").unwrap(),
                 final_amount
             );
         }
     }
-    mod amount {
+    mod number {
         use super::*;
         #[test]
         fn parsing() {
-            let amount = Amount::from_str("174.534 SEK");
-            println!("{amount:?}");
+            let amount = Number::from_str("174.534").unwrap();
+            assert_eq!(
+                Number{ value: 174534, n_decimals: 3 },
+                amount
+            );
         }
 
         #[test]
         fn addition() {
-            let amount = Amount::from_str("154.32 SEK")
+            let amount = Number::from_str("154.32")
                 .unwrap()
-                .add(Amount::from_str("200.023 SEK").unwrap());
-            assert_eq!(Amount::from_str("354.343 SEK").unwrap(), amount.unwrap());
+                +
+                Number::from_str("200.023").unwrap();
+            assert_eq!(Number::from_str("354.343").unwrap(), amount);
 
-            let amount = Amount::from_str("227 EUR")
+            let amount = Number::from_str("227")
                 .unwrap()
-                .add(Amount::from_str("-531.276 EUR").unwrap());
-            assert_eq!(Amount::from_str("-304.276 EUR").unwrap(), amount.unwrap());
+                 + Number::from_str("-531.276").unwrap();
+            assert_eq!(Number::from_str("-304.276").unwrap(), amount);
         }
     }
 }

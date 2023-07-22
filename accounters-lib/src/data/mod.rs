@@ -70,21 +70,30 @@ impl Database {
         Ok(())
     }
 
-    /*
     pub fn get_account_balance(
         &self,
         account_name: &account::AccountName,
-        start: Option<datetime::DateTime>,
-        end: Option<datetime::DateTime>,
-    ) -> HashMap<transaction::Currency, transaction::Amount> {
-        let mut currencies = HashMap::new();
+        start_date: Option<datetime::DateTime>,
+        end_date: Option<datetime::DateTime>,
+    ) -> Result<money::Amount, &'static str> {
 
-        for trns_id in self.account_to_transaction_map.get(account_name).iter() {
-            let amount = self.transactions.get(trns_id);
-            unimplemented!();
-        }
+        let total_amount: money::Amount = self.accounts
+            .get(account_name)
+            .ok_or("Account not found")?
+            .get_transaction_ids()
+            .map(|id| self.transactions.get(id).unwrap())
+            .filter(|trns| {
+                start_date.as_ref().map_or(true, |date| trns.get_date() >= date)
+                &&
+                end_date.as_ref().map_or(true, |date| trns.get_date() <= date)
+            })
+            .map(|trns: &transaction::Transaction| {
+                let output: &money::Amount = trns.get_amount(account_name).unwrap();
+                output
+            }).fold(money::Amount::default(), |acc, x| acc + x);
+
+        Ok(total_amount)
     }
-    */
 }
 
 impl Database {
