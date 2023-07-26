@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::data::transaction::TransactionId;
+use crate::data::tags::Tag;
 
 #[derive(Deserialize, Serialize)]
 pub struct Account {
     name: AccountName,
     account_type: AccountType,
+    tags: HashSet<Tag>,
     #[serde(skip)]
     transactions: HashSet<TransactionId>,
 }
@@ -31,6 +33,7 @@ impl Account {
     pub fn new(account_name: &str, account_type: AccountType) -> Self {
         Account {
             name: AccountName(account_name.to_owned()),
+            tags: HashSet::new(),
             account_type,
             transactions: HashSet::default(),
         }
@@ -46,5 +49,18 @@ impl Account {
     
     pub fn get_transaction_ids(&self) -> impl Iterator<Item=&TransactionId> {
         self.transactions.iter()
+    }
+
+    pub fn remove_transaction(&mut self, transaction_id: &TransactionId) -> Result<(), &'static str> {
+        let was_there = self.transactions.remove(transaction_id);
+        if was_there {
+            Ok(())
+        } else {
+            Err("Transaction ID not associated")
+        }
+    }
+
+    pub fn has_transactions(&self) -> bool {
+        !self.transactions.is_empty()
     }
 }

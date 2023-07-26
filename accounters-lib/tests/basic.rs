@@ -51,6 +51,13 @@ fn read_and_write_file() {
         ))
         .unwrap();
 
+
+    let removal_try = database_2.remove_account(AccountName::new("shares/monopoly"));
+    assert!(matches!(
+            removal_try,
+            Err(accounters_lib::data::Error::AccountHasTransactions(_))
+    ));
+
     database_2.save_to_file("test_files/file_1.txt");
 }
 

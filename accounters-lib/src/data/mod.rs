@@ -2,6 +2,7 @@ pub mod account;
 pub mod datetime;
 pub mod money;
 pub mod transaction;
+pub mod tags;
 
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, io::Write};
@@ -26,8 +27,11 @@ pub struct Database {
 #[derive(Debug)]
 pub enum Error {
     AccountNameInUse(account::AccountName),
+    AccountHasTransactions(account::AccountName),
     TransactionIdInUse(transaction::TransactionId),
-    UnknownAssociatedAccount(account::AccountName),
+    UnknownAccount(account::AccountName),
+    UnknownTransaction(transaction::TransactionId),
+    AccountNotAssociatedWithTransaction((account::AccountName, transaction::TransactionId))
 }
 
 impl Database {
@@ -46,6 +50,20 @@ impl Database {
         Ok(())
     }
 
+    pub fn remove_account(&mut self, account_name: account::AccountName) -> Result<(), Error> {
+        let Some(account) = self.accounts.get(&account_name) else {
+            return Err(Error::UnknownAccount(account_name))
+        };
+
+        if account.has_transactions() {
+            return Err(Error::AccountHasTransactions(account_name))
+        }
+
+        self.accounts.remove(&account_name);
+
+        Ok(())
+    }
+
     pub fn add_transaction(&mut self, new_trns: transaction::Transaction) -> Result<(), Error> {
         let transaction_id = new_trns.generate_id();
         if self.transactions.get(&transaction_id).is_some() {
@@ -54,7 +72,7 @@ impl Database {
 
         for account_name in new_trns.get_associated_accounts() {
             if self.accounts.get(account_name).is_none() {
-                return Err(Error::UnknownAssociatedAccount(account_name.to_owned()));
+                return Err(Error::UnknownAccount(account_name.to_owned()));
             }
         }
 
@@ -70,13 +88,28 @@ impl Database {
         Ok(())
     }
 
+    pub fn remove_transaction(&mut self, transaction_id: transaction::TransactionId) -> Result<(), Error> {
+        let Some(transaction) = self.transactions.get(&transaction_id) else {
+            return Err(Error::UnknownTransaction(transaction_id))
+        };
+
+        for account_name in transaction.get_associated_accounts() {
+            let account = self.accounts.get_mut(account_name).unwrap();
+            account.remove_transaction(&transaction_id)
+                .map_err(|_| Error::AccountNotAssociatedWithTransaction(
+                        (account_name.to_owned(), transaction_id)
+                    )
+                )?;
+        }
+        Ok(())
+    }
+
     pub fn get_account_balance(
         &self,
         account_name: &account::AccountName,
         start_date: Option<datetime::DateTime>,
         end_date: Option<datetime::DateTime>,
     ) -> Result<money::Amount, &'static str> {
-
         let total_amount: money::Amount = self.accounts
             .get(account_name)
             .ok_or("Account not found")?

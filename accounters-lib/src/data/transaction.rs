@@ -1,16 +1,21 @@
 use crate::data::datetime::DateTime;
 use serde::{Deserialize, Serialize};
 
-use crate::data::{account::AccountName, money::Amount};
+use crate::data::{
+    account::AccountName,
+    money::Amount,
+    tags::Tag
+};
 
 use std::hash::{Hash, Hasher};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 #[derive(Deserialize, Serialize)]
 pub struct Transaction {
     name: String,
     notes: String,
+    tags: HashSet<Tag>,
     datetime: DateTime,
     amounts: HashMap<AccountName, Amount>,
 }
@@ -20,6 +25,9 @@ impl Hash for Transaction {
         self.name.hash(state);
         self.notes.hash(state);
         self.datetime.hash(state);
+        for tag in self.tags.iter() {
+            tag.hash(state);
+        }
         for (account, amount) in self.amounts.iter() {
             account.hash(state);
             amount.hash(state);
@@ -45,6 +53,7 @@ impl Transaction {
         Transaction {
             name: name.to_owned(),
             notes: notes.to_owned(),
+            tags: HashSet::new(),
             datetime,
             amounts: amounts_map,
         }
