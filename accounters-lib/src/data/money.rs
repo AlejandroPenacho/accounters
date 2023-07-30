@@ -62,6 +62,12 @@ impl FromStr for Amount {
     }
 }
 
+impl Amount {
+    pub fn is_zero(&self) -> bool {
+        self.amounts.is_empty()
+    }
+}
+
 impl std::ops::Add<&Amount> for Amount {
     type Output = Self;
     fn add(mut self, other: &Self) -> Self {

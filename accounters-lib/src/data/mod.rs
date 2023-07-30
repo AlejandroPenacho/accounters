@@ -31,13 +31,15 @@ pub enum Error {
     TransactionIdInUse(transaction::TransactionId),
     UnknownAccount(account::AccountName),
     UnknownTransaction(transaction::TransactionId),
-    AccountNotAssociatedWithTransaction((account::AccountName, transaction::TransactionId))
+    AccountNotAssociatedWithTransaction((account::AccountName, transaction::TransactionId)),
+    UnbalancedTransaction
 }
 
 impl Database {
     pub fn add_account(&mut self, new_acc: account::Account) -> Result<(), Error> {
         // Check that the account name does not already exist. If it does not,
         // add the account name to the account map.
+
         match self.accounts.entry(new_acc.get_name().to_owned()) {
             Entry::Occupied(_) => {
                 return Err(Error::AccountNameInUse(new_acc.get_name().to_owned()))
@@ -74,6 +76,10 @@ impl Database {
             if self.accounts.get(account_name).is_none() {
                 return Err(Error::UnknownAccount(account_name.to_owned()));
             }
+        }
+
+        if !&self.get_transaction_balance(&new_trns).is_zero() {
+            return Err(Error::UnbalancedTransaction)
         }
 
         for account_name in new_trns.get_associated_accounts() {
@@ -126,6 +132,21 @@ impl Database {
             }).fold(money::Amount::default(), |acc, x| acc + x);
 
         Ok(total_amount)
+    }
+
+    pub fn get_transaction_balance(&self, transaction: &transaction::Transaction) -> money::Amount {
+        let mut total_balance = money::Amount::default();
+        for (account_name, amount) in transaction.get_amounts() {
+            match self.accounts.get(account_name).unwrap().get_account_type() {
+                account::AccountType::Asset => {
+                    total_balance = total_balance + amount;
+                },
+                account::AccountType::Flow => {
+                    total_balance = total_balance - amount;
+                }
+            }
+        }
+        total_balance
     }
 }
 

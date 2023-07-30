@@ -72,6 +72,10 @@ impl Transaction {
         self.hash(&mut hasher);
         TransactionId(hasher.finish())
     }
+
+    pub fn get_amounts(&self) -> &HashMap<AccountName, Amount> {
+        &self.amounts
+    }
     
     pub fn get_date(&self) -> &DateTime {
         &self.datetime

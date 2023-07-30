@@ -25,7 +25,7 @@ fn read_and_write_file() {
             "Na que comentar xd",
             DateTime::from_str("2023-07-13 14:54").unwrap(),
             &[
-                ("bank/ICA_Bank", "132 SEK"),
+                ("bank/ICA_Bank", "-132 SEK"),
                 ("entertainment/eat_out", "-132 SEK"),
             ],
         ))

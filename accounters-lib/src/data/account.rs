@@ -46,6 +46,10 @@ impl Account {
     pub fn get_name(&self) -> &AccountName {
         &self.name
     }
+
+    pub fn get_account_type(&self) -> &AccountType {
+        &self.account_type
+    }
     
     pub fn get_transaction_ids(&self) -> impl Iterator<Item=&TransactionId> {
         self.transactions.iter()
