@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
+use std::convert::AsRef;
 
 use crate::data::transaction::TransactionId;
 use crate::data::tags::Tag;
@@ -26,6 +27,12 @@ pub struct AccountName(String);
 impl AccountName {
     pub fn new(name: &str) -> Self {
         Self(name.to_owned())
+    }
+}
+
+impl AsRef<str> for AccountName {
+    fn as_ref(&self) -> &str {
+        &self.0
     }
 }
 

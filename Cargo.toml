@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
-  "accounters-lib"
+  "accounters_lib",
+  "accounters_importer"
 ]

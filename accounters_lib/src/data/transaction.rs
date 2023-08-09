@@ -59,6 +59,26 @@ impl Transaction {
         }
     }
 
+    pub fn from_amounts(
+        name: &str,
+        notes: &str,
+        datetime: DateTime,
+        amounts: &[(String, Amount)],
+    ) -> Transaction {
+        let mut amounts_map = HashMap::new();
+        for (account, amount) in amounts {
+            amounts_map.insert(AccountName::new(account), amount.to_owned());
+        }
+
+        Transaction {
+            name: name.to_owned(),
+            notes: notes.to_owned(),
+            tags: HashSet::new(),
+            datetime,
+            amounts: amounts_map,
+        }
+    }
+
     pub fn get_associated_accounts(&self) -> impl Iterator<Item = &AccountName> {
         self.amounts.keys()
     }

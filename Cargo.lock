@@ -3,7 +3,14 @@
 version = 3
 
 [[package]]
-name = "accounters-lib"
+name = "accounters_importer"
+version = "0.1.0"
+dependencies = [
+ "accounters_lib",
+]
+
+[[package]]
+name = "accounters_lib"
 version = "0.1.0"
 dependencies = [
  "serde",

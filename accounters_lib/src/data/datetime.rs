@@ -2,20 +2,30 @@ use serde::{Deserialize, Serialize};
 
 use std::{str::FromStr};
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
+const MONTH_DAYS: [u8; 13] = [
+    0,
+    31, 28, 31, 30, 31, 30,
+    31, 31, 30, 31, 30, 31
+];
+
+fn year_is_leap(year: u16) -> bool {
+    year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
+}
+
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct DateTime {
     date: Date,
     time: Option<Time>,
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Date {
     year: u16,
     month: u8,
     day: u8,
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Time {
     hour: u8,
     minute: u8,
@@ -105,6 +115,58 @@ impl FromStr for DateTime {
             date: split.next().ok_or("What")?.parse()?,
             time: Some(split.next().ok_or("What")?.parse()?),
         })
+    }
+}
+
+impl Date {
+    fn next_day(mut self) -> Self {
+        self.day += 1;
+        let month_days = if self.month == 2 && year_is_leap(self.year) {
+            29
+        } else {
+            MONTH_DAYS[self.month as usize]
+        };
+        if self.day > month_days {
+            self.day = 1;
+            self.month += 1;
+            if self.month == 13 {
+                self.month = 1;
+                self.year += 1;
+            }
+        }
+        self
+    }
+    fn prev_day(mut self) -> Self {
+        self.day -= 1;
+        if self.day == 0 {
+            self.month -= 1;
+            if self.month == 0 {
+                self.month = 12;
+                self.year -= 1;
+            }
+            self.day = if self.month == 2 && year_is_leap(self.year) {
+                29
+            } else {
+                MONTH_DAYS[self.month as usize]
+            }
+        }
+        self
+    }
+}
+
+impl std::ops::Add<i64> for Date {
+    type Output = Date;
+    fn add(mut self, days: i64) -> Self::Output {
+        if days >= 0 {
+            for _ in 0..days {
+                self = self.next_day();
+            }
+        } else {
+            for _ in 0..(days.abs()) {
+                self = self.prev_day();
+            }
+        }
+        self
     }
 }
 
