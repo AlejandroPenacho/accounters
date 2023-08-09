@@ -3,6 +3,13 @@
 version = 3
 
 [[package]]
+name = "accounters_cli"
+version = "0.1.0"
+dependencies = [
+ "accounters_lib",
+]
+
+[[package]]
 name = "accounters_importer"
 version = "0.1.0"
 dependencies = [

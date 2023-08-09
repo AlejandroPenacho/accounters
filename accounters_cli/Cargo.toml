@@ -1,0 +1,10 @@
+[package]
+name = "accounters_cli"
+version = "0.1.0"
+edition = "2021"
+default-run = "accounters_cli"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+accounters_lib = { path = "../accounters_lib" }

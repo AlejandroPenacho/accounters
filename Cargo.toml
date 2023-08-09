@@ -2,5 +2,7 @@
 
 members = [
   "accounters_lib",
-  "accounters_importer"
+  "accounters_importer",
+  "accounters_cli"
 ]
+
