@@ -1,15 +1,18 @@
 use std::fs::read_dir;
 
+
 use accounters_lib::data::Database;
 
-pub fn load_database(dir_path: &str) -> Option<Database> {
+pub fn load_database(dir_path: &str) -> Option<(String, Database)> {
     let paths = find_databases(dir_path).unwrap();
     loop {
-        println!("\nAvailable databases in {dir_path}:");
+        let n_lines = termsize::get().unwrap().rows as usize;
+        println!("Available databases in {dir_path}:");
         for (index, name) in paths.iter().enumerate() {
             println!("\t{}) {}", index+1, name)
         }
-        println!("\nSelect by index or name, or press q to quit:");
+        println!("{}", "\n".repeat(n_lines - 4 - paths.len()));
+        println!("Select by index or name, or press q to quit:");
         let mut input = String::new();
 
         std::io::stdin().read_line(&mut input).unwrap();
@@ -21,12 +24,18 @@ pub fn load_database(dir_path: &str) -> Option<Database> {
                 continue
             };
             println!("{name} loaded");
-            return Some(Database::read_from_file(&format!("{dir_path}/{name}.json")).unwrap());
+            return Some((
+                String::from(name),
+                Database::read_from_file(&format!("{dir_path}/{name}.json")).unwrap()
+            ));
         }
 
         if paths.iter().any(|x| x == trimmed_input) {
             println!("{trimmed_input} loaded");
-            return Some(Database::read_from_file(&format!("{dir_path}/{trimmed_input}.json")).unwrap());
+            return Some((
+                String::from(trimmed_input),
+                Database::read_from_file(&format!("{dir_path}/{trimmed_input}.json")).unwrap()
+            ));
         }
 
         if trimmed_input == "q" {
@@ -50,5 +59,4 @@ fn find_databases(path: &str) -> Option<Vec<String>> {
             Some(path.file_stem()?.to_str()?.to_owned())
         }).collect()
     )
-
 }
