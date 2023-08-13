@@ -94,6 +94,10 @@ impl Database {
         Ok(())
     }
 
+    pub fn modify_transaction(&mut self) -> Result<(), Error> {
+        unimplemented!();
+    }
+
     pub fn remove_transaction(&mut self, transaction_id: transaction::TransactionId) -> Result<(), Error> {
         let Some(transaction) = self.transactions.get(&transaction_id) else {
             return Err(Error::UnknownTransaction(transaction_id))
@@ -122,9 +126,9 @@ impl Database {
             .get_transaction_ids()
             .map(|id| self.transactions.get(id).unwrap())
             .filter(|trns| {
-                start_date.as_ref().map_or(true, |date| trns.get_date() >= date)
+                start_date.as_ref().map_or(true, |date| trns.get_datetime() >= date)
                 &&
-                end_date.as_ref().map_or(true, |date| trns.get_date() <= date)
+                end_date.as_ref().map_or(true, |date| trns.get_datetime() <= date)
             })
             .map(|trns: &transaction::Transaction| {
                 let output: &money::Amount = trns.get_amount(account_name).unwrap();
@@ -147,6 +151,14 @@ impl Database {
             }
         }
         total_balance
+    }
+
+    pub fn get_transaction_ids(&self) -> impl Iterator<Item=&transaction::TransactionId> {
+        self.transactions.keys()
+    }
+
+    pub fn get_transaction(&self, id: &transaction::TransactionId) -> &transaction::Transaction {
+        self.transactions.get(id).unwrap()
     }
 }
 

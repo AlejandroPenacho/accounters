@@ -42,6 +42,14 @@ impl DateTime {
             time: time.map(|(h, m)| Time { hour: h, minute: m }),
         }
     }
+
+    pub fn get_date(&self) -> &Date {
+        &self.date
+    }
+
+    pub fn get_time(&self) -> &Option<Time> {
+        &self.time
+    }
 }
 
 impl FromStr for Date {
@@ -167,6 +175,24 @@ impl std::ops::Add<i64> for Date {
             }
         }
         self
+    }
+}
+
+impl std::fmt::Display for Date {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:4}-{:0>2}-{:0>2}", self.year, self.month, self.day)
+    }
+}
+impl std::fmt::Display for Time {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:0>2}:{:0>2}", self.hour, self.minute)
+    }
+}
+
+impl std::fmt::Display for DateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let time_string = self.time.map_or(String::from("-----"), |x| format!("{}", x));
+        write!(f, "{}  {}", self.date, time_string)
     }
 }
 

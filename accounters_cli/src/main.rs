@@ -1,24 +1,42 @@
 mod db_loader;
+mod transaction;
 
 use accounters_lib::data::{
     Database,
-    transaction::TransactionId
+};
+
+use transaction::{
+    TransactionViewState,
+    TransactionViewConfig
 };
 
 fn main() {
-    let (name, mut database) = db_loader::load_database("files").unwrap();
-    let state = State::init(name, &mut database);
-    state.print();
+    let (name, database) = db_loader::load_database("files").unwrap();
+    let mut state = State::init(name, database);
+    loop {
+        state.print();
+        let mut text_input = String::new();
+        std::io::stdin().read_line(&mut text_input).unwrap();
+        let input = state.read(text_input.trim());
+        match state.eval(input) {
+            Some(new_state) => { state = new_state },
+            None => break
+        }
+    }
+    let n_lines = termsize::get().unwrap().rows as usize;
+    println!("Thank you, never come back!");
+    println!("{}", "\n".repeat(n_lines-3));
 }
 
 enum Input {
+    Quit,
     Literal(String),
     Integer(i64),
     Float(f64)
 }
 
-struct State<'a> {
-    database: &'a mut Database,
+struct State {
+    database: Database,
     db_name: String,
     mode: Mode
 }
@@ -29,17 +47,9 @@ enum Mode {
     TransactionViewConfiguration(TransactionViewConfig)
 }
 
-struct TransactionViewState {
-    id_list: Vec<TransactionId>,
-    current_range: (usize, usize),
-    config: TransactionViewConfig
-}
-struct TransactionViewConfig {
-    filter_account: Option<String>
-}
 
-impl<'a> State<'a> {
-    fn init(db_name: String, database: &'a mut Database) -> Self {
+impl State {
+    fn init(db_name: String, database: Database) -> Self {
         State {
             db_name,
             database,
@@ -61,7 +71,7 @@ impl<'a> State<'a> {
                 println!("Press index or q:");
             },
             TransactionView(tv_state) => {
-                println!("Nothing");
+                tv_state.print(&self.database);
             },
             TransactionViewConfiguration(config) => {
              println!("More nothing");
@@ -69,11 +79,37 @@ impl<'a> State<'a> {
         }
     }
 
-    fn read(&self) -> Input {
-        Input::Integer(32)
+    fn read(&self, input: &str) -> Input {
+        if input == "q" || input == "quit" {
+            return Input::Quit
+        }
+        Input::Literal(input.to_owned())
     }
 
-    fn eval(&self, input: Input) -> Option<State> {
-        None
+    fn eval(mut self, input: Input) -> Option<State> {
+        if matches!(input, Input::Quit) {
+            return None
+        }
+        match &mut self.mode {
+            Mode::StartScreen => Some(start_screen_select_mode(self)),
+            Mode::TransactionView(tv_state) => {
+                let Input::Literal(input) = input else {
+                    return Some(self)
+                };
+                if input == "f" {
+                    tv_state.move_forward(None);
+                } else if input == "b" {
+                    tv_state.move_back(None);
+                };
+                Some(self)
+            }
+            _ => Some(self)
+        }
     }
+}
+
+fn start_screen_select_mode(mut state: State) -> State {
+    let transaction_view_state = TransactionViewState::new(&state.database);
+    state.mode = Mode::TransactionView(transaction_view_state);
+    state
 }

@@ -93,11 +93,15 @@ impl Transaction {
         TransactionId(hasher.finish())
     }
 
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
+
     pub fn get_amounts(&self) -> &HashMap<AccountName, Amount> {
         &self.amounts
     }
     
-    pub fn get_date(&self) -> &DateTime {
+    pub fn get_datetime(&self) -> &DateTime {
         &self.datetime
     }
 }
