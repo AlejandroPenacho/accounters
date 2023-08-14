@@ -36,7 +36,7 @@ impl Hash for Transaction {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
-pub struct TransactionId(u64);
+pub struct TransactionId(pub u64);
 
 impl Transaction {
     pub fn example_transaction(

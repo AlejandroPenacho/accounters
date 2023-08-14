@@ -11,7 +11,7 @@ pub struct Amount {
 }
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Hash, Clone)]
-pub struct Currency(String);
+pub struct Currency(pub String);
 
 impl Currency {
     pub fn new(name: &str) -> Self {
@@ -113,6 +113,15 @@ impl std::ops::Neg for &Amount {
     }
 }
 
+impl std::fmt::Display for Amount {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (currency, number) in self.amounts.iter() {
+            write!(f, "{} {}, ", currency.0, number)?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Deserialize, Serialize, Hash, PartialEq, Eq, Debug, Default, Clone)]
 pub struct Number {
     value: i64,
@@ -185,6 +194,15 @@ impl std::ops::Neg for Number {
     fn neg(mut self) -> Self {
         self.value *= -1;
         self
+    }
+}
+
+impl std::fmt::Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut value = format!("{}", self.value);
+        let decimals = value.split_off(value.len() - self.n_decimals as usize);
+        
+        write!(f, "{}.{}", value, decimals)
     }
 }
 

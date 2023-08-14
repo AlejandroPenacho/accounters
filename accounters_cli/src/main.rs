@@ -6,6 +6,7 @@ use accounters_lib::data::{
 };
 
 use transaction::{
+    SingleTransactionViewState,
     TransactionViewState,
     TransactionViewConfig
 };
@@ -44,7 +45,8 @@ struct State {
 enum Mode {
     StartScreen,
     TransactionView(TransactionViewState),
-    TransactionViewConfiguration(TransactionViewConfig)
+    TransactionViewConfiguration(TransactionViewConfig),
+    SingleTransactionView(SingleTransactionViewState)
 }
 
 
@@ -60,23 +62,33 @@ impl State {
     fn print(&self) {
         use Mode::*;
         let n_lines = termsize::get().unwrap().rows as usize;
-        match &self.mode {
+        let (mut top_text, bottom_text) = match &self.mode {
             StartScreen => {
-                println!("Loaded database {}\n\nSelect action:", self.db_name);
-                println!();
-                println!("\t1) Show transactions");
-                println!("\t2) Delete database");
-                println!("\tq) Exit");
-                println!("{}", "\n".repeat(n_lines - 10));
-                println!("Press index or q:");
+                let mut top_text = String::new();
+                top_text.push_str(&format!("Loaded database {}\n\nSelect action:\n\n\n", self.db_name));
+                top_text.push_str("\t1) Show transactions\n");
+                top_text.push_str("\t2) Delete database\n");
+                top_text.push_str("\tq) Exit\n");
+                let bottom_text = String::from("Press index or q:");
+                (top_text, bottom_text)
             },
             TransactionView(tv_state) => {
-                tv_state.print(&self.database);
+                let (top, bottom) = tv_state.produce_text(&self.database);
+                (top, bottom)
             },
             TransactionViewConfiguration(config) => {
-             println!("More nothing");
+                (String::from("a"), String::from("b"))
+            },
+            SingleTransactionView(transaction_view) => {
+                (
+                    transaction_view.produce_text(&self.database),
+                    String::from("Press anything, it is probably not going to work XDDD")
+                )
             }
-        }
+        };
+
+        top_text.push_str(&"\n".repeat(n_lines - top_text.lines().count() - 2));
+        println!("{}{}", top_text, bottom_text);
     }
 
     fn read(&self, input: &str) -> Input {
@@ -100,7 +112,11 @@ impl State {
                     tv_state.move_forward(None);
                 } else if input == "b" {
                     tv_state.move_back(None);
-                };
+                } else {
+                    let input = input.parse::<usize>().unwrap();
+                    let transaction_id = tv_state.get_transaction_id(input);
+                    self.mode = Mode::SingleTransactionView(SingleTransactionViewState::new(*transaction_id));
+                }
                 Some(self)
             }
             _ => Some(self)
