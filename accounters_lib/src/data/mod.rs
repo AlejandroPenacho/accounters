@@ -160,6 +160,10 @@ impl Database {
     pub fn get_transaction(&self, id: &transaction::TransactionId) -> &transaction::Transaction {
         self.transactions.get(id).unwrap()
     }
+
+    pub fn get_account(&self, name: &account::AccountName) -> &account::Account {
+        self.accounts.get(name).unwrap()
+    }
 }
 
 impl Database {

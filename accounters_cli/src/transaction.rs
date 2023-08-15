@@ -5,7 +5,8 @@ use accounters_lib::data::{
         Date,
         Time,
         DateTime
-    }
+    },
+    account::{AccountName, AccountType}
 };
 
 pub struct TransactionViewState {
@@ -107,13 +108,39 @@ impl SingleTransactionViewState {
         output.push_str(&format!(
             "{:>30} :\n\n", "Amounts"
         ));
-        for account in transaction.get_associated_accounts() {
-            let amount = transaction.get_amount(account).unwrap();
-            output.push_str(&format!(
-                "{:>30} : {}\n",
-                account.as_ref(),
-                amount
-            ));
+        let asset_accounts = transaction.get_associated_accounts().filter(|acc_name| {
+            matches!(database.get_account(acc_name).get_account_type(), AccountType::Asset)
+        }).collect::<Vec<_>>();
+        let flow_accounts = transaction.get_associated_accounts().filter(|acc_name| {
+            matches!(database.get_account(acc_name).get_account_type(), AccountType::Flow)
+        }).collect::<Vec<_>>();
+
+        output.push_str("Assets:\n\n");
+        if asset_accounts.is_empty() {
+            output.push_str("NOTHING\n");
+        } else {
+            for account in asset_accounts {
+                let amount = transaction.get_amount(account).unwrap();
+                output.push_str(&format!(
+                    "{:>30} : {}\n",
+                    account.as_ref(),
+                    amount
+                ));
+            }
+        }
+
+        output.push_str("\nFlows:\n\n");
+        if flow_accounts.is_empty() {
+            output.push_str("NOTHING\n");
+        } else {
+            for account in flow_accounts {
+                let amount = transaction.get_amount(account).unwrap();
+                output.push_str(&format!(
+                    "{:>30} : {}\n",
+                    account.as_ref(),
+                    amount
+                ));
+            }
         }
 
         output
