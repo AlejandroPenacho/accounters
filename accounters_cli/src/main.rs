@@ -19,9 +19,9 @@ fn main() {
         let mut text_input = String::new();
         std::io::stdin().read_line(&mut text_input).unwrap();
         let input = state.read(text_input.trim());
-        match state.eval(input) {
-            Some(new_state) => { state = new_state },
-            None => break
+        state.eval(input);
+        if state.mode.is_empty() {
+            break
         }
     }
     let n_lines = termsize::get().unwrap().rows as usize;
@@ -39,7 +39,7 @@ enum Input {
 struct State {
     database: Database,
     db_name: String,
-    mode: Mode
+    mode: Vec<Mode>
 }
 
 enum Mode {
@@ -55,14 +55,14 @@ impl State {
         State {
             db_name,
             database,
-            mode: Mode::StartScreen
+            mode: vec![Mode::StartScreen]
         }
     }
 
     fn print(&self) {
         use Mode::*;
         let n_lines = termsize::get().unwrap().rows as usize;
-        let (mut top_text, bottom_text) = match &self.mode {
+        let (mut top_text, bottom_text) = match &self.mode.last().unwrap() {
             StartScreen => {
                 let mut top_text = String::new();
                 top_text.push_str(&format!("Loaded database {}\n\nSelect action:\n\n\n", self.db_name));
@@ -98,15 +98,16 @@ impl State {
         Input::Literal(input.to_owned())
     }
 
-    fn eval(mut self, input: Input) -> Option<State> {
+    fn eval(&mut self, input: Input) {
         if matches!(input, Input::Quit) {
-            return None
+            self.mode.pop();
+            return
         }
-        match &mut self.mode {
-            Mode::StartScreen => Some(start_screen_select_mode(self)),
+        match self.mode.iter_mut().last().unwrap() {
+            Mode::StartScreen => start_screen_select_mode(self),
             Mode::TransactionView(tv_state) => {
                 let Input::Literal(input) = input else {
-                    return Some(self)
+                    return
                 };
                 if input == "f" {
                     tv_state.move_forward(None);
@@ -114,18 +115,16 @@ impl State {
                     tv_state.move_back(None);
                 } else {
                     let input = input.parse::<usize>().unwrap();
-                    let transaction_id = tv_state.get_transaction_id(input);
-                    self.mode = Mode::SingleTransactionView(SingleTransactionViewState::new(*transaction_id));
+                    let transaction_id = *tv_state.get_transaction_id(input);
+                    self.mode.push(Mode::SingleTransactionView(SingleTransactionViewState::new(transaction_id)));
                 }
-                Some(self)
             }
-            _ => Some(self)
+            _ => {}
         }
     }
 }
 
-fn start_screen_select_mode(mut state: State) -> State {
+fn start_screen_select_mode(state: &mut State) {
     let transaction_view_state = TransactionViewState::new(&state.database);
-    state.mode = Mode::TransactionView(transaction_view_state);
-    state
+    state.mode.push(Mode::TransactionView(transaction_view_state));
 }
