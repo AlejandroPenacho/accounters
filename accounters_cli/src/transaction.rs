@@ -1,13 +1,11 @@
 use accounters_lib::data::{
     Database,
     transaction::{Transaction, TransactionId},
-    datetime::{
-        Date,
-        Time,
-        DateTime
-    },
+    datetime::DateTime,
     account::{AccountName, AccountType}
 };
+
+use time::{Date, Time};
 
 pub struct MultiTransactionViewState {
     id_list: Vec<TransactionId>,

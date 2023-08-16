@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use std::str::FromStr;
+use time::{
+    Date,
+    Time,
+    Month,
+    format_description::well_known::Iso8601
+};
 
 const MONTH_DAYS: [u8; 13] = [
     0,
@@ -18,28 +24,11 @@ pub struct DateTime {
     time: Option<Time>,
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub struct Date {
-    year: u16,
-    month: u8,
-    day: u8,
-}
-
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub struct Time {
-    hour: u8,
-    minute: u8,
-}
-
 impl DateTime {
-    pub fn simple(date: (u16, u8, u8), time: Option<(u8, u8)>) -> Self {
+    pub fn simple(date: (i32, u8, u8), time: Option<(u8, u8)>) -> Self {
         DateTime {
-            date: Date {
-                year: date.0,
-                month: date.1,
-                day: date.2,
-            },
-            time: time.map(|(h, m)| Time { hour: h, minute: m }),
+            date: Date::from_calendar_date(date.0, Month::January.nth_next(date.1 - 1) , date.2).unwrap(),
+            time: time.map(|(h, m)| Time::from_hms(h, m, 0).unwrap()),
         }
     }
 
@@ -49,53 +38,6 @@ impl DateTime {
 
     pub fn get_time(&self) -> &Option<Time> {
         &self.time
-    }
-}
-
-impl FromStr for Date {
-    type Err = &'static str;
-    fn from_str(str: &str) -> Result<Self, Self::Err> {
-        // It should look like YYYY-MM-DD
-
-        let mut split = str.split('-');
-        let year = split
-            .next()
-            .ok_or("What")?
-            .parse()
-            .map_err(|_| "Unparsable")?;
-        let month = split
-            .next()
-            .ok_or("What")?
-            .parse()
-            .map_err(|_| "Unparsable")?;
-        let day = split
-            .next()
-            .ok_or("What")?
-            .parse()
-            .map_err(|_| "Unparsable")?;
-        Ok(Self { year, month, day })
-    }
-}
-
-impl FromStr for Time {
-    type Err = &'static str;
-    fn from_str(str: &str) -> Result<Self, Self::Err> {
-        // It should look like YYYY-MM-DD
-
-        let mut split = str.split(':');
-        let hour = split
-            .next()
-            .ok_or("What")?
-            .parse()
-            .map_err(|_| "Unparsable")?;
-
-        let minute = split
-            .next()
-            .ok_or("What")?
-            .parse()
-            .map_err(|_| "Unparsable")?;
-
-        Ok(Self { hour, minute })
     }
 }
 
@@ -114,78 +56,17 @@ impl FromStr for DateTime {
             str.split(' ')
         } else {
             return Ok(DateTime {
-                date: str.parse()?,
+                date: Date::parse(str, &Iso8601::DEFAULT).map_err(|_| "Whoops")?,
                 time: None,
             });
         };
+        let date_string = split.next().ok_or("What")?;
+        let time_string = split.next().ok_or("What")?;
 
         Ok(DateTime {
-            date: split.next().ok_or("What")?.parse()?,
-            time: Some(split.next().ok_or("What")?.parse()?),
+            date: Date::parse(date_string, &Iso8601::DEFAULT).map_err(|_| "Unparsable date")?,
+            time: Some(Time::parse(time_string, &Iso8601::DEFAULT).map_err(|_| "Unparsable time")?),
         })
-    }
-}
-
-impl Date {
-    fn next_day(mut self) -> Self {
-        self.day += 1;
-        let month_days = if self.month == 2 && year_is_leap(self.year) {
-            29
-        } else {
-            MONTH_DAYS[self.month as usize]
-        };
-        if self.day > month_days {
-            self.day = 1;
-            self.month += 1;
-            if self.month == 13 {
-                self.month = 1;
-                self.year += 1;
-            }
-        }
-        self
-    }
-    fn prev_day(mut self) -> Self {
-        self.day -= 1;
-        if self.day == 0 {
-            self.month -= 1;
-            if self.month == 0 {
-                self.month = 12;
-                self.year -= 1;
-            }
-            self.day = if self.month == 2 && year_is_leap(self.year) {
-                29
-            } else {
-                MONTH_DAYS[self.month as usize]
-            }
-        }
-        self
-    }
-}
-
-impl std::ops::Add<i64> for Date {
-    type Output = Date;
-    fn add(mut self, days: i64) -> Self::Output {
-        if days >= 0 {
-            for _ in 0..days {
-                self = self.next_day();
-            }
-        } else {
-            for _ in 0..(days.abs()) {
-                self = self.prev_day();
-            }
-        }
-        self
-    }
-}
-
-impl std::fmt::Display for Date {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:4}-{:0>2}-{:0>2}", self.year, self.month, self.day)
-    }
-}
-impl std::fmt::Display for Time {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:0>2}:{:0>2}", self.hour, self.minute)
     }
 }
 
@@ -204,13 +85,13 @@ mod test {
         use super::*;
         #[test]
         fn compare_time() {
-            assert!(Time::from_str("12:56") < Time::from_str("12:57"));
-            assert!(Time::from_str("6:52") < Time::from_str("7:04"));
+            assert!(Time::parse("12:56", &Iso8601::DEFAULT).unwrap() < Time::parse("12:57", &Iso8601::DEFAULT).unwrap());
+            assert!(Time::parse("06:52", &Iso8601::DEFAULT).unwrap() < Time::parse("07:04", &Iso8601::DEFAULT).unwrap());
         }
 
         #[test]
         fn compare_date() {
-            assert!(Date::from_str("2023-11-08") < Date::from_str("2023-11-09"))
+            assert!(Date::parse("2023-11-08", &Iso8601::DEFAULT).unwrap() < Date::parse("2023-11-09", &Iso8601::DEFAULT).unwrap())
         }
 
         #[test]

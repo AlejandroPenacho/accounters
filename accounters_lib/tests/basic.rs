@@ -71,7 +71,7 @@ fn compute_balance() {
     database.add_transaction(Transaction::example_transaction(
         "cosas",
         "Nada",
-        DateTime::from_str("2023-8-16").unwrap(),
+        DateTime::from_str("2023-08-16").unwrap(),
         &[
             ("bank/ICA_Bank", "2500 SEK"),
             ("balance/splitwise", "-2500 SEK"),
@@ -81,7 +81,7 @@ fn compute_balance() {
     database.add_transaction(Transaction::example_transaction(
         "Devolucion",
         "Habia que",
-        DateTime::from_str("2023-8-23").unwrap(),
+        DateTime::from_str("2023-08-23").unwrap(),
         &[
             ("bank/ICA_Bank", "-1300 SEK"),
             ("balance/splitwise", "1300 SEK"),
@@ -91,7 +91,7 @@ fn compute_balance() {
     database.add_transaction(Transaction::example_transaction(
         "Otra",
         "Habia que",
-        DateTime::from_str("2023-9-03").unwrap(),
+        DateTime::from_str("2023-09-03").unwrap(),
         &[
             ("bank/BBVA", "-800 EUR"),
             ("balance/splitwise", "800 EUR"),
@@ -105,6 +105,6 @@ fn compute_balance() {
 
     assert_eq!(
         Amount::from_str("-1200 SEK"),
-        database.get_account_balance(&AccountName::new("balance/splitwise"), None, Some(DateTime::from_str("2023-8-31").unwrap()))
+        database.get_account_balance(&AccountName::new("balance/splitwise"), None, Some(DateTime::from_str("2023-08-31").unwrap()))
     );
 }
