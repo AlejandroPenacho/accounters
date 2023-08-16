@@ -11,7 +11,7 @@ use std::hash::{Hash, Hasher};
 use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Transaction {
     name: String,
     notes: String,
@@ -39,6 +39,17 @@ impl Hash for Transaction {
 pub struct TransactionId(pub u64);
 
 impl Transaction {
+
+    pub fn empty() -> Transaction {
+        Transaction {
+            name: String::new(),
+            notes: String::new(),
+            tags: HashSet::new(),
+            datetime: DateTime::from_str("2022-05-08").unwrap(),
+            amounts: HashMap::new()
+        }
+    }
+
     pub fn example_transaction(
         name: &str,
         notes: &str,

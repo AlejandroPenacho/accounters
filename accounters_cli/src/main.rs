@@ -4,12 +4,15 @@ mod account;
 
 use accounters_lib::data::{
     Database,
+    money::Amount,
+    datetime::DateTime
 };
 
 use transaction::{
-    SingleTransactionViewState,
     TransactionViewState,
-    TransactionViewConfig
+    MultiTransactionViewState,
+    MultiTransactionViewConfig,
+    TransactionEditState
 };
 use account::MultiAccountViewState;
 
@@ -21,6 +24,7 @@ fn main() {
         let mut text_input = String::new();
         std::io::stdin().read_line(&mut text_input).unwrap();
         let input = state.read(text_input.trim());
+        println!("Parsed: {:?}", input);
         state.eval(input);
         if state.mode.is_empty() {
             break
@@ -31,11 +35,13 @@ fn main() {
     println!("{}", "\n".repeat(n_lines-3));
 }
 
+#[derive(Debug)]
 enum Input {
     Quit,
     Literal(String),
+    Amount(Amount),
     Integer(i64),
-    Float(f64)
+    DateTime(DateTime)
 }
 
 struct State {
@@ -46,10 +52,11 @@ struct State {
 
 enum Mode {
     StartScreen,
+    MultiTransactionView(MultiTransactionViewState),
+    MultiTransactionViewConfiguration(MultiTransactionViewConfig),
     TransactionView(TransactionViewState),
-    TransactionViewConfiguration(TransactionViewConfig),
-    SingleTransactionView(SingleTransactionViewState),
-    MultiAccountView(MultiAccountViewState)
+    MultiAccountView(MultiAccountViewState),
+    TransactionEdit(TransactionEditState)
 }
 
 
@@ -76,14 +83,14 @@ impl State {
                 let bottom_text = String::from("Press index or q:");
                 (top_text, bottom_text)
             },
-            TransactionView(tv_state) => {
+            MultiTransactionView(tv_state) => {
                 let (top, bottom) = tv_state.produce_text(&self.database);
                 (top, bottom)
             },
-            TransactionViewConfiguration(config) => {
+            MultiTransactionViewConfiguration(config) => {
                 (String::from("a"), String::from("b"))
             },
-            SingleTransactionView(transaction_view) => {
+            TransactionView(transaction_view) => {
                 (
                     transaction_view.produce_text(&self.database),
                     String::from("Press anything, it is probably not going to work XDDD")
@@ -94,6 +101,9 @@ impl State {
                     view_state.produce_text(&self.database),
                     String::from("Show assets (a), flows (f), or go back (q)")
                 )
+            },
+            TransactionEdit(te_state) => {
+                (String::from("OMG\n"), String::from("Please go back (q)"))
             }
         };
 
@@ -105,6 +115,15 @@ impl State {
         if input == "q" || input == "quit" {
             return Input::Quit
         }
+        if let Ok(datetime) = input.parse::<DateTime>() {
+            return Input::DateTime(datetime)
+        }
+        if let Ok(amount) = input.parse::<Amount>() {
+            return Input::Amount(amount)
+        }
+        if let Ok(integer) = input.parse::<i64>() {
+            return Input::Integer(integer)
+        }
         Input::Literal(input.to_owned())
     }
 
@@ -115,18 +134,20 @@ impl State {
         }
         match self.mode.iter_mut().last().unwrap() {
             Mode::StartScreen => start_screen_select_mode(self, input),
-            Mode::TransactionView(tv_state) => {
-                let Input::Literal(input) = input else {
+            Mode::MultiTransactionView(tv_state) => {
+
+                if let Input::Literal(input) = input {
+                    if input == "f" {
+                        tv_state.move_forward(None);
+                    } else if input == "b" {
+                        tv_state.move_back(None);
+                    }
                     return
-                };
-                if input == "f" {
-                    tv_state.move_forward(None);
-                } else if input == "b" {
-                    tv_state.move_back(None);
-                } else {
-                    let input = input.parse::<usize>().unwrap();
-                    let transaction_id = *tv_state.get_transaction_id(input);
-                    self.mode.push(Mode::SingleTransactionView(SingleTransactionViewState::new(transaction_id)));
+                }
+
+                if let Input::Integer(index) = input {
+                    let transaction_id = *tv_state.get_transaction_id(index as usize);
+                    self.mode.push(Mode::TransactionView(TransactionViewState::new(transaction_id)));
                 }
             },
             Mode::MultiAccountView(av_state) => {
@@ -145,12 +166,12 @@ impl State {
 }
 
 fn start_screen_select_mode(state: &mut State, input: Input) {
-    let Input::Literal(input) = input else {
+    let Input::Integer(input) = input else {
         return
     };
-    match input.as_str() {
-        "1" => { state.mode.push(Mode::MultiAccountView(MultiAccountViewState::new())) },
-        "2" => { state.mode.push(Mode::TransactionView(TransactionViewState::new(&state.database))) },
+    match input {
+        1 => { state.mode.push(Mode::MultiAccountView(MultiAccountViewState::new())) },
+        2 => { state.mode.push(Mode::MultiTransactionView(MultiTransactionViewState::new(&state.database))) },
         _ => { }
     }
 }

@@ -1,6 +1,6 @@
 use accounters_lib::data::{
     Database,
-    transaction::TransactionId,
+    transaction::{Transaction, TransactionId},
     datetime::{
         Date,
         Time,
@@ -9,31 +9,29 @@ use accounters_lib::data::{
     account::{AccountName, AccountType}
 };
 
-pub struct TransactionViewState {
+pub struct MultiTransactionViewState {
     id_list: Vec<TransactionId>,
     current_range: (usize, usize),
-    config: TransactionViewConfig
+    config: MultiTransactionViewConfig
 }
 
-pub struct SingleTransactionViewState {
-    transaction_id: TransactionId
-}
+pub struct MultiTransactionViewConfig;
 
-pub struct TransactionViewConfig;
 
-impl TransactionViewConfig {
+
+impl MultiTransactionViewConfig {
     pub fn get_transactions_per_page(&self) -> usize {
         termsize::get().unwrap().rows as usize - 5
     }
 }
 
-impl TransactionViewState {
+impl MultiTransactionViewState {
     pub fn new(database: &Database) -> Self {
         let mut all_transactions_id: Vec<TransactionId> = database.get_transaction_ids().cloned().collect();
 
         all_transactions_id.sort_by_key(|id| database.get_transaction(id).get_datetime());
         all_transactions_id.reverse();
-        let config = TransactionViewConfig;
+        let config = MultiTransactionViewConfig;
 
         Self {
             id_list: all_transactions_id,
@@ -88,8 +86,11 @@ impl TransactionViewState {
     }
 }
 
+pub struct TransactionViewState {
+    transaction_id: TransactionId
+}
 
-impl SingleTransactionViewState {
+impl TransactionViewState {
     pub fn new(transaction_id: TransactionId) -> Self {
         Self { transaction_id }
     }
@@ -144,5 +145,37 @@ impl SingleTransactionViewState {
         }
 
         output
+    }
+}
+
+pub struct TransactionEditState {
+    transaction: Transaction,
+    original_id: Option<TransactionId>,
+    mode: Mode
+}
+
+enum Mode {
+    Neutral,
+    EditName,
+    EditNotes,
+    EditTags,
+    EditDate,
+    EditTime,
+    EditAmount,
+    AddAmount,
+}
+
+impl TransactionEditState {
+    pub fn new(database: &Database, transaction_id: Option<TransactionId>) -> Self {
+        let transaction = transaction_id.map_or(
+            Transaction::empty(),
+            |id| database.get_transaction(&id).clone()
+        );
+
+        Self {
+            transaction,
+            original_id: transaction_id,
+            mode: Mode::Neutral
+        }
     }
 }

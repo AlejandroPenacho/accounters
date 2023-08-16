@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use std::{str::FromStr};
+use std::str::FromStr;
 
 const MONTH_DAYS: [u8; 13] = [
     0,
@@ -12,20 +12,20 @@ fn year_is_leap(year: u16) -> bool {
     year % 400 == 0 || (year % 4 == 0 && year % 100 != 0)
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct DateTime {
     date: Date,
     time: Option<Time>,
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Date {
     year: u16,
     month: u8,
     day: u8,
 }
 
-#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[derive(Deserialize, Serialize, Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Time {
     hour: u8,
     minute: u8,
