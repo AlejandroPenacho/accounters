@@ -92,7 +92,7 @@ impl State {
             MultiAccountView(view_state) => {
                 (
                     view_state.produce_text(&self.database),
-                    String::from("Please go back")
+                    String::from("Show assets (a), flows (f), or go back (q)")
                 )
             }
         };
@@ -128,7 +128,17 @@ impl State {
                     let transaction_id = *tv_state.get_transaction_id(input);
                     self.mode.push(Mode::SingleTransactionView(SingleTransactionViewState::new(transaction_id)));
                 }
-            }
+            },
+            Mode::MultiAccountView(av_state) => {
+                let Input::Literal(input) = input else {
+                    return
+                };
+                if input == "f" {
+                    av_state.show_flows()
+                } else if input == "a" {
+                    av_state.show_assets()
+                }
+            },
             _ => {}
         }
     }

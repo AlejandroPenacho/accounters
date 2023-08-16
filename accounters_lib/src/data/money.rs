@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use std::{
     str::FromStr,
-    collections::HashMap
+    collections::HashMap,
+    fmt::Write
 };
 
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone)]
@@ -123,10 +124,11 @@ impl std::ops::Neg for &Amount {
 
 impl std::fmt::Display for Amount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut output = String::new();
         for (currency, number) in self.amounts.iter() {
-            write!(f, "{} {}, ", number, currency.0)?;
+            write!(output, "{} {}, ", number, currency.0)?;
         }
-        Ok(())
+        output.fmt(f)
     }
 }
 
@@ -208,9 +210,26 @@ impl std::ops::Neg for Number {
 impl std::fmt::Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut value = format!("{}", self.value);
-        let decimals = value.split_off(value.len() - self.n_decimals as usize);
+
+        let mut decimals = value.split_off(value.len() - self.n_decimals as usize);
+
+        if decimals.is_empty() { decimals = "00".to_string() }
+        if decimals.len() == 1 { decimals.push('0') }
+
+        if value.is_empty() { value = "0".to_string() }
+
+
+        let mut separated_value = String::new();
+
+        for (i, c) in value.chars().enumerate() {
+            separated_value.push(c);
+            if (value.len() - i + 2) % 3 == 0 && (value.len() - i) != 1 {
+                separated_value.push(',');
+            }
+        }
+        let output = format!("{}.{}", separated_value, decimals);
         
-        write!(f, "{}.{}", value, decimals)
+        output.fmt(f)
     }
 }
 

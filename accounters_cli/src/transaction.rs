@@ -51,7 +51,7 @@ impl TransactionViewState {
         let mut output = format!(
             "Displaying transactions {}-{} out of {}\n\n",
             self.current_range.0 + 1,
-            self.current_range.1 + 1,
+            self.current_range.1,
             self.id_list.len()
         );
         for (index, transaction_index) in ((self.current_range.0)..(self.current_range.1)).enumerate() {
