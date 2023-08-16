@@ -15,7 +15,7 @@ pub struct Account {
     transactions: HashSet<TransactionId>,
 }
 
-#[derive(Deserialize, Serialize, Clone, Copy)]
+#[derive(Deserialize, Serialize, Clone, Copy, PartialEq, Eq)]
 pub enum AccountType {
     Asset,
     Flow,

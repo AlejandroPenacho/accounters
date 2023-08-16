@@ -161,6 +161,10 @@ impl Database {
         self.transactions.get(id).unwrap()
     }
 
+    pub fn get_account_names(&self) -> impl Iterator<Item=&account::AccountName> {
+        self.accounts.keys()
+    }
+
     pub fn get_account(&self, name: &account::AccountName) -> &account::Account {
         self.accounts.get(name).unwrap()
     }

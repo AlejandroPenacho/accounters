@@ -66,6 +66,14 @@ impl Amount {
     pub fn is_zero(&self) -> bool {
         self.amounts.is_empty()
     }
+
+    pub fn currencies(&self) -> Vec<Currency> {
+        self.amounts.keys().cloned().collect()
+    }
+
+    pub fn in_currency(&self, currency: &Currency) -> Number {
+        self.amounts.get(currency).map_or(Number::default(), |x| x.clone())
+    }
 }
 
 impl std::ops::Add<&Amount> for Amount {
@@ -116,7 +124,7 @@ impl std::ops::Neg for &Amount {
 impl std::fmt::Display for Amount {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (currency, number) in self.amounts.iter() {
-            write!(f, "{} {}, ", currency.0, number)?;
+            write!(f, "{} {}, ", number, currency.0)?;
         }
         Ok(())
     }

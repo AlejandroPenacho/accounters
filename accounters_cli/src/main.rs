@@ -1,5 +1,6 @@
 mod db_loader;
 mod transaction;
+mod account;
 
 use accounters_lib::data::{
     Database,
@@ -10,6 +11,7 @@ use transaction::{
     TransactionViewState,
     TransactionViewConfig
 };
+use account::MultiAccountViewState;
 
 fn main() {
     let (name, database) = db_loader::load_database("files").unwrap();
@@ -46,7 +48,8 @@ enum Mode {
     StartScreen,
     TransactionView(TransactionViewState),
     TransactionViewConfiguration(TransactionViewConfig),
-    SingleTransactionView(SingleTransactionViewState)
+    SingleTransactionView(SingleTransactionViewState),
+    MultiAccountView(MultiAccountViewState)
 }
 
 
@@ -66,8 +69,9 @@ impl State {
             StartScreen => {
                 let mut top_text = String::new();
                 top_text.push_str(&format!("Loaded database {}\n\nSelect action:\n\n\n", self.db_name));
-                top_text.push_str("\t1) Show transactions\n");
-                top_text.push_str("\t2) Delete database\n");
+                top_text.push_str("\t1) Show accounts\n");
+                top_text.push_str("\t2) Show transactions\n");
+                top_text.push_str("\t3) Delete database\n");
                 top_text.push_str("\tq) Exit\n");
                 let bottom_text = String::from("Press index or q:");
                 (top_text, bottom_text)
@@ -83,6 +87,12 @@ impl State {
                 (
                     transaction_view.produce_text(&self.database),
                     String::from("Press anything, it is probably not going to work XDDD")
+                )
+            },
+            MultiAccountView(view_state) => {
+                (
+                    view_state.produce_text(&self.database),
+                    String::from("Please go back")
                 )
             }
         };
@@ -104,7 +114,7 @@ impl State {
             return
         }
         match self.mode.iter_mut().last().unwrap() {
-            Mode::StartScreen => start_screen_select_mode(self),
+            Mode::StartScreen => start_screen_select_mode(self, input),
             Mode::TransactionView(tv_state) => {
                 let Input::Literal(input) = input else {
                     return
@@ -124,7 +134,13 @@ impl State {
     }
 }
 
-fn start_screen_select_mode(state: &mut State) {
-    let transaction_view_state = TransactionViewState::new(&state.database);
-    state.mode.push(Mode::TransactionView(transaction_view_state));
+fn start_screen_select_mode(state: &mut State, input: Input) {
+    let Input::Literal(input) = input else {
+        return
+    };
+    match input.as_str() {
+        "1" => { state.mode.push(Mode::MultiAccountView(MultiAccountViewState::new())) },
+        "2" => { state.mode.push(Mode::TransactionView(TransactionViewState::new(&state.database))) },
+        _ => { }
+    }
 }
