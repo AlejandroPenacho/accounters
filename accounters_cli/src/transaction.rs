@@ -5,7 +5,7 @@ use accounters_lib::data::{
     account::{AccountName, AccountType}
 };
 
-use time::{Date, Time};
+use time::{Date, Time, macros::format_description};
 
 pub struct MultiTransactionViewState {
     id_list: Vec<TransactionId>,
@@ -60,7 +60,7 @@ impl MultiTransactionViewState {
                 "\t{}\t{}  {} \t{}\n",
                 index+1,
                 if last_date.map_or(true, |x| x != *date) { format!("{}", date) } else { "          ".to_string() },
-                time.map_or("     ".to_string(), |x| format!("{}", x)),
+                time.map_or("     ".to_string(), |x| x.format(&format_description!("[hour]:[minute]")).unwrap()),
                 transaction.get_name()
             ));
 
@@ -101,20 +101,25 @@ impl TransactionViewState {
         output.push_str(&format!(
             "{:>30} : {}\n", "Name", transaction.get_name()
         ));
+
         output.push_str(&format!(
-            "{:>30} : {}\n", "Date", transaction.get_datetime().get_date()
+            "{:>30} : {}\n", "Date", transaction.get_datetime().get_date_string()
         ));
+
+        let time: String = transaction.get_datetime().get_time_string('-');
         output.push_str(&format!(
-            "{:>30} :\n\n", "Amounts"
+            "{:>30} : {}\n", "Time", time
         ));
+
         let asset_accounts = transaction.get_associated_accounts().filter(|acc_name| {
             matches!(database.get_account(acc_name).get_account_type(), AccountType::Asset)
         }).collect::<Vec<_>>();
+
         let flow_accounts = transaction.get_associated_accounts().filter(|acc_name| {
             matches!(database.get_account(acc_name).get_account_type(), AccountType::Flow)
         }).collect::<Vec<_>>();
 
-        output.push_str("Assets:\n\n");
+        output.push_str("\n\tAssets:\n\n");
         if asset_accounts.is_empty() {
             output.push_str("NOTHING\n");
         } else {
@@ -128,7 +133,7 @@ impl TransactionViewState {
             }
         }
 
-        output.push_str("\nFlows:\n\n");
+        output.push_str("\n\tFlows:\n\n");
         if flow_accounts.is_empty() {
             output.push_str("NOTHING\n");
         } else {

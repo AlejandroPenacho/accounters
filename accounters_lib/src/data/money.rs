@@ -219,15 +219,19 @@ impl std::fmt::Display for Number {
         if value.is_empty() { value = "0".to_string() }
 
 
-        let mut separated_value = String::new();
+        let mut reversed_units = String::new();
 
-        for (i, c) in value.chars().enumerate() {
-            separated_value.push(c);
-            if (value.len() - i + 2) % 3 == 0 && (value.len() - i) != 1 {
-                separated_value.push(',');
+        for (i, c) in value.chars().rev().enumerate() {
+            let has_comma = i % 3 == 0 && i != 0 && c != '-';
+            if has_comma {
+                reversed_units.push(',')
             }
+            reversed_units.push(c);
         }
-        let output = format!("{}.{}", separated_value, decimals);
+        // 4,567
+        // 321
+
+        let output = format!("{}.{}", reversed_units.chars().rev().collect::<String>(), decimals);
         
         output.fmt(f)
     }
@@ -238,6 +242,58 @@ impl Number {
         self.value == 0
     }
 }
+
+pub struct AmountAlignment {
+    minus_alignment: bool,
+    unit_places: usize,
+    decimal_places: usize,
+    number_currency_space: usize,
+    currency_places: usize,
+}
+
+/*
+impl AmountAlignment {
+    pub fn from_amounts<'a, T: Iterator<Item=&'a Amount>>(amounts: T) -> Self {
+        for amount in amounts {
+            for currency in amount.currencies() {
+                let number = amount.in_currency(&currency);
+                let n_decimals = number.n_decimals;
+                let n_units = number.value.abs().to_string().len();
+                let has_minus = number < 0;
+            }
+        }
+        
+    }
+}
+*/
+
+/*
+impl AmountAlignment {
+    pub fn format_amount(&self, amount: &Amount) -> String {
+        let mut output = String::new();
+        for (currency, units_size, decimal_size) in self.0.iter() {
+            let number = amount.in_currency(currency);
+            let str_number = number.to_string();
+            let (units, decimals) = str_number.split_once(',').expect("Something with number formatting");
+            if number.is_zero() {
+                write!(output, "{:<0$}", units_size + decimal_size + currency.0.len() + 2).unwrap();
+
+            } else {
+                write!(
+                    output,
+                    "{:>3$}.{:<4$} {}",
+                    units,
+                    decimals,
+                    currency.0,
+                    units_size,
+                    decimal_size
+                ).unwrap()
+            }
+        }
+        output
+    }
+}
+*/
 
 #[cfg(test)]
 mod test {

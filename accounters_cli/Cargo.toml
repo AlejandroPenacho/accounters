@@ -9,4 +9,4 @@ default-run = "accounters_cli"
 [dependencies]
 accounters_lib = { path = "../accounters_lib" }
 termsize = { version = "^0.1.6" }
-time = { version = "^0.3", features=["serde", "parsing"] }
+time = { version = "^0.3", features=["serde", "parsing", "formatting", "macros"] }

@@ -5,7 +5,8 @@ use time::{
     Date,
     Time,
     Month,
-    format_description::well_known::Iso8601
+    format_description::well_known::Iso8601,
+    macros::format_description
 };
 
 const MONTH_DAYS: [u8; 13] = [
@@ -36,8 +37,19 @@ impl DateTime {
         &self.date
     }
 
+    pub fn get_date_string(&self) -> String {
+        format!("{}", self.date)
+    }
+
     pub fn get_time(&self) -> &Option<Time> {
         &self.time
+    }
+
+    pub fn get_time_string(&self, fallback: char) -> String {
+        self.time.map_or_else(
+            || String::from(fallback),
+            |time| time.format(format_description!("[hour]:[minute]")).unwrap()
+        )
     }
 }
 
