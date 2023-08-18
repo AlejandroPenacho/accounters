@@ -1,3 +1,8 @@
+//! Includes all the data structures used by the library
+//!
+//! The purpose of this module is to contain the fundamental
+//! parts of the libray.
+
 pub mod account;
 pub mod datetime;
 pub mod money;
@@ -10,6 +15,11 @@ use std::{collections::HashMap, io::Write};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json;
 
+
+/// A complete accounting database
+///
+/// This is the most important element, as it represents a collection of
+/// accounts and transactions taking place between them.
 #[derive(Deserialize, Serialize, Default)]
 pub struct Database {
     #[serde(
@@ -24,18 +34,32 @@ pub struct Database {
     transactions: HashMap<transaction::TransactionId, transaction::Transaction>,
 }
 
+/// All the errors that can be returned when interacting with a database
 #[derive(Debug)]
 pub enum Error {
+    /// The account name is already in use
     AccountNameInUse(account::AccountName),
+    /// The account has transactions associated with it
     AccountHasTransactions(account::AccountName),
+    /// The transaction id is already in use
     TransactionIdInUse(transaction::TransactionId),
+    /// The account name specified does not correspond with any account
     UnknownAccount(account::AccountName),
+    /// The [`TransactionId`](transaction::TransactionId) specified does not correspond with any transaction
     UnknownTransaction(transaction::TransactionId),
+    /// The transaction associated with the id does not affect the account
+    /// given
     AccountNotAssociatedWithTransaction((account::AccountName, transaction::TransactionId)),
+    /// The transaction is not balanced
     UnbalancedTransaction
 }
 
 impl Database {
+    /// Add a new account to the database
+    ///
+    /// The function returns an error if there is already an account in the
+    /// database with the same name as the new one, in which case the
+    /// operation is aborted.
     pub fn add_account(&mut self, new_acc: account::Account) -> Result<(), Error> {
         // Check that the account name does not already exist. If it does not,
         // add the account name to the account map.
@@ -52,6 +76,10 @@ impl Database {
         Ok(())
     }
 
+    /// Remove an account from the database
+    ///
+    /// The function returns an error if the account has some transaction
+    /// associated to it.
     pub fn remove_account(&mut self, account_name: account::AccountName) -> Result<(), Error> {
         let Some(account) = self.accounts.get(&account_name) else {
             return Err(Error::UnknownAccount(account_name))
@@ -66,6 +94,7 @@ impl Database {
         Ok(())
     }
 
+    /// Add a new transaction to the database
     pub fn add_transaction(&mut self, new_trns: transaction::Transaction) -> Result<(), Error> {
         let transaction_id = new_trns.generate_id();
         if self.transactions.get(&transaction_id).is_some() {
@@ -98,6 +127,7 @@ impl Database {
         unimplemented!();
     }
 
+    /// Remove a transaction from the database
     pub fn remove_transaction(&mut self, transaction_id: transaction::TransactionId) -> Result<(), Error> {
         let Some(transaction) = self.transactions.get(&transaction_id) else {
             return Err(Error::UnknownTransaction(transaction_id))
@@ -114,6 +144,8 @@ impl Database {
         Ok(())
     }
 
+    /// Compute the variation of money in an account in the specified time
+    /// interval
     pub fn get_account_balance(
         &self,
         account_name: &account::AccountName,
