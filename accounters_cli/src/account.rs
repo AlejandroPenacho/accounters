@@ -1,7 +1,10 @@
 use accounters_lib::data::{
     Database,
     account::AccountType,
-    money::Currency
+    money::{
+        Currency,
+        NumberAlignment
+    }
 };
 use std::{
     fmt::Write,
@@ -52,12 +55,17 @@ impl MultiAccountViewState {
 
         let currencies = currencies.iter().collect::<Vec<_>>();
 
-        let mut number_lengths: HashMap<Currency, usize> = HashMap::new();
+        let mut alignments: HashMap<Currency, NumberAlignment> = HashMap::new();
         for currency in currencies.iter() {
+            /*
             let max_length = accounts.iter().map(|(_, amount)| {
                 amount.in_currency(currency).to_string().len()
             }).max().unwrap();
-            number_lengths.insert((*currency).clone(), max_length);
+            */
+            alignments.insert(
+                (*currency).clone(),
+                NumberAlignment::from_numbers(accounts.iter().map(|(_,amount)| amount.in_currency(currency)))
+            );
         }
 
         let account_name_length = accounts.iter().map(|(name, _)| {
@@ -75,9 +83,8 @@ impl MultiAccountViewState {
             for currency in currencies.iter() {
                 write!(
                     output,
-                    " {:>1$}",
-                    amount.in_currency(currency),
-                    number_lengths.get(currency).unwrap() + 5
+                    "   {}",
+                    amount.in_currency(currency).format(alignments.get(currency).unwrap()),
                 ).unwrap();
             }
             writeln!(output).unwrap();

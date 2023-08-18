@@ -6,6 +6,9 @@ use std::{
     fmt::Write
 };
 
+const SEP_THOUSAND: &str = ",";
+const SEP_DEC: &str = ".";
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize, Default, Clone)]
 pub struct Amount {
     amounts: HashMap<Currency, Number>
@@ -158,6 +161,8 @@ impl FromStr for Number {
             .parse()
             .map_err(|_| "Unparsable")?;
 
+        let sign = if units >= 0 { 1 } else { -1};
+
         let decimals_string = split.next().ok_or("What!")?.trim_end_matches('0');
 
         let n_decimals = decimals_string.len() as u32;
@@ -166,7 +171,7 @@ impl FromStr for Number {
         let decimals = if n_decimals == 0 {
             0
         } else {
-            decimals_string.parse::<i64>().map_err(|_| "Unparsable")? * value.signum()
+            decimals_string.parse::<i64>().map_err(|_| "Unparsable")? * sign
         };
 
         value += decimals;
@@ -209,29 +214,15 @@ impl std::ops::Neg for Number {
 
 impl std::fmt::Display for Number {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut value = format!("{}", self.value);
+        let (sign, value, decimals) = self.get_strings();
 
-        let mut decimals = value.split_off(value.len() - self.n_decimals as usize);
-
-        if decimals.is_empty() { decimals = "00".to_string() }
-        if decimals.len() == 1 { decimals.push('0') }
-
-        if value.is_empty() { value = "0".to_string() }
-
-
-        let mut reversed_units = String::new();
-
-        for (i, c) in value.chars().rev().enumerate() {
-            let has_comma = i % 3 == 0 && i != 0 && c != '-';
-            if has_comma {
-                reversed_units.push(',')
-            }
-            reversed_units.push(c);
-        }
-        // 4,567
-        // 321
-
-        let output = format!("{}.{}", reversed_units.chars().rev().collect::<String>(), decimals);
+        let output = format!(
+            "{}{:0<1}{}{:0<2}",
+            sign,
+            value,
+            SEP_DEC,
+            decimals
+        );
         
         output.fmt(f)
     }
@@ -241,31 +232,98 @@ impl Number {
     pub fn is_zero(&self) -> bool {
         self.value == 0
     }
-}
+    pub fn is_nonnegative(&self) -> bool {
+        self.value >= 0
+    }
 
-pub struct AmountAlignment {
-    minus_alignment: bool,
-    unit_places: usize,
-    decimal_places: usize,
-    number_currency_space: usize,
-    currency_places: usize,
-}
+    /// I hope this makes everything nicer, because so far it has been quite
+    /// embarrasing
+    pub fn get_strings(&self) -> (String, String, String) {
+        let str_value = self.value.abs().to_string();
+        let n_decimals = self.n_decimals as usize;
 
-/*
-impl AmountAlignment {
-    pub fn from_amounts<'a, T: Iterator<Item=&'a Amount>>(amounts: T) -> Self {
-        for amount in amounts {
-            for currency in amount.currencies() {
-                let number = amount.in_currency(&currency);
-                let n_decimals = number.n_decimals;
-                let n_units = number.value.abs().to_string().len();
-                let has_minus = number < 0;
+        let (naive_units, decimals) = if str_value.len() > n_decimals {
+            let borrowed = str_value.split_at(str_value.len() - n_decimals);
+            (
+                borrowed.0.to_owned(),
+                borrowed.1.to_owned(),
+            )
+        } else {
+            // println!("Se vino: {}", self);
+            (
+                String::new(),
+                format!("{:0>1$}", str_value, n_decimals)
+            )
+        };
+
+        let sign = if self.is_nonnegative() { "" } else { "-" };
+
+        let mut reversed_units = String::new();
+
+        for (i, c) in naive_units.chars().rev().enumerate() {
+            let has_comma = i % 3 == 0 && i != 0 && c != '-';
+            if has_comma {
+                reversed_units.push(',')
             }
+            reversed_units.push(c);
         }
-        
+
+        (
+            sign.to_owned(), 
+            reversed_units.chars().rev().collect(),
+            decimals.to_owned()
+        )
+    }
+
+    pub fn format(&self, alignment: &NumberAlignment) -> String {
+        let (mut sign, units, mut decimals) = self.get_strings();
+
+        if sign.is_empty() { sign = " ".to_string() };
+        decimals = format!("{:0>2}", decimals);
+
+        if alignment.minus_alignment {
+            format!(
+                "{}{:>3$}.{:<4$}",
+                sign, units, decimals,
+                alignment.unit_slots, alignment.decimal_slots
+            )
+        } else {
+            format!(
+                "{:>2$}.{:<3$}",
+                format!("{}{}", sign, units), decimals,
+                alignment.unit_slots + 1, alignment.decimal_slots
+            )
+
+        }
     }
 }
-*/
+
+pub struct NumberAlignment {
+    minus_alignment: bool,
+    unit_slots: usize,
+    decimal_slots: usize,
+}
+
+impl NumberAlignment {
+    pub fn from_numbers<T: IntoIterator<Item=Number>>(numbers: T) -> Self {
+        let mut unit_slots: usize = 0;
+        let mut decimal_slots: usize = 0;
+        for number in numbers {
+            let (_, units, decimals) = number.get_strings();
+            let n_decimals = decimals.len().max(2);
+            let n_units = units.len();
+            unit_slots = unit_slots.max(n_units);
+            decimal_slots = decimal_slots.max(n_decimals);
+            println!("Number: {}, n_units: {}", number, n_units);
+        }
+
+        Self {
+            minus_alignment: true,
+            unit_slots,
+            decimal_slots
+        }
+    }
+}
 
 /*
 impl AmountAlignment {
@@ -360,10 +418,17 @@ mod test {
         use super::*;
         #[test]
         fn parsing() {
-            let amount = Number::from_str("174.534").unwrap();
             assert_eq!(
                 Number{ value: 174534, n_decimals: 3 },
-                amount
+                Number::from_str("174.534").unwrap()
+            );
+            assert_eq!(
+                Number{ value: 534, n_decimals: 3 },
+                Number::from_str("0.534").unwrap()
+            );
+            assert_eq!(
+                Number{ value: 4, n_decimals: 3 },
+                Number::from_str("0.00400").unwrap()
             );
         }
 
@@ -379,6 +444,34 @@ mod test {
                 .unwrap()
                  + Number::from_str("-531.276").unwrap();
             assert_eq!(Number::from_str("-304.276").unwrap(), amount);
+        }
+
+        #[test]
+        fn printing() {
+            assert_eq!(
+                (
+                    String::from("-"),
+                    String::from("123,456"),
+                    String::from("425")
+                ),
+                Number::from_str("-123456.425").unwrap().get_strings()
+            );
+            assert_eq!(
+                (
+                    String::from(""),
+                    String::from(""),
+                    String::from("43")
+                ),
+                Number::from_str("0.43").unwrap().get_strings()
+            );
+            assert_eq!(
+                (
+                    String::from(""),
+                    String::from(""),
+                    String::from("0017")
+                ),
+                Number::from_str("0.0017").unwrap().get_strings()
+            );
         }
     }
 }
